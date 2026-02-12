@@ -21,6 +21,7 @@ button { background:#2c3e50; color:white; border:none; cursor:pointer; }
 Macros disponibles:<br>
 L = [a-z]<br>
 D = [0-9]<br><br>
+Permitido como símbolo literal: .<br>
 Operadores permitidos: |  *  ( )<br>
 </div>
 
@@ -37,7 +38,7 @@ Operadores permitidos: |  *  ( )<br>
 <script>
 
 // =============================
-// EXPANSIÓN DE MACROS
+// EXPANSIÓN MACROS
 // =============================
 function expandirMacros(exp) {
 
@@ -55,10 +56,14 @@ function expandirMacros(exp) {
 // =============================
 
 function esSimbolo(c) {
-    return /^[a-z0-9]$/.test(c);
+    return /^[a-z0-9.]$/.test(c); // ahora incluye .
 }
 
+// usamos · como concatenación interna
+const CONCAT = "·";
+
 function insertarConcatenacion(exp) {
+
     let resultado = "";
 
     for (let i = 0; i < exp.length; i++) {
@@ -74,15 +79,16 @@ function insertarConcatenacion(exp) {
             (esSimbolo(c1) || c1 === ')' || c1 === '*') &&
             (esSimbolo(c2) || c2 === '(')
         ) {
-            resultado += '.';
+            resultado += CONCAT;
         }
     }
+
     return resultado;
 }
 
 function precedencia(op) {
     if (op === '*') return 3;
-    if (op === '.') return 2;
+    if (op === CONCAT) return 2;
     if (op === '|') return 1;
     return 0;
 }
@@ -166,7 +172,7 @@ function thompson(postfijo) {
             pila.push(new AFN(i, f));
         }
 
-        else if (c === '.') {
+        else if (c === CONCAT) {
 
             let b = pila.pop();
             let a = pila.pop();
@@ -242,7 +248,6 @@ function mover(estados, simbolo) {
     let resultado = new Set();
 
     for (let estado of estados) {
-
         if (estado.transiciones[simbolo]) {
             for (let s of estado.transiciones[simbolo])
                 resultado.add(s);
@@ -265,7 +270,7 @@ function simular(afn, cadena) {
 }
 
 // =============================
-// VALIDACIÓN FINAL
+// VALIDACIÓN
 // =============================
 
 function validar() {
@@ -281,9 +286,10 @@ function validar() {
 
         exp = expandirMacros(exp);
         exp = insertarConcatenacion(exp);
-        let post = aPostfijo(exp);
 
+        let post = aPostfijo(exp);
         let afn = thompson(post);
+
         let esValida = simular(afn, cadena);
 
         if (esValida) {
@@ -295,13 +301,11 @@ function validar() {
         }
 
     } catch (error) {
-
         resultado.innerHTML = "Expresión inválida";
         resultado.className = "result invalid";
     }
 }
 
 </script>
-
 </body>
 </html>
