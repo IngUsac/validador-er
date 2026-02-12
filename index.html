@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Validador ER - Thompson</title>
+<style>
+body { font-family: Arial; background:#f4f4f4; padding:30px; }
+input, button { padding:8px; margin:5px 0; width:100%; }
+button { background:#2c3e50; color:white; border:none; cursor:pointer; }
+.result { padding:10px; margin-top:10px; font-weight:bold; }
+.valid { color:green; }
+.invalid { color:red; }
+</style>
+</head>
+<body>
+
+<h2>Validador de Expresiones Regulares</h2>
+<p>Operadores permitidos: |  *  ( )</p>
+
+<label>Expresión regular:</label>
+<input type="text" id="regex">
+
+<label>Cadena:</label>
+<input type="text" id="cadena">
+
+<button onclick="validar()">Validar</button>
+
+<div id="resultado" class="result"></div>
+
+<script>
+
+// ----------------------------
+// UTILIDADES
+// ----------------------------
+
+// Insertar concatenación explícita '.'
+function insertarConcatenacion(exp) {
+    let resultado = "";
+    for (let i = 0; i < exp.length; i++) {
+        let c1 = exp[i];
+        let c2 = exp[i+1];
+
+        resultado += c1;
+
+        if (!c2) continue;
+
+        if (
+            (esSimbolo(c1) || c1 === ')' || c1 === '*') &&
+            (esSimbolo(c2) || c2 === '(')
+        ) {
+            resultado += '.';
+        }
+    }
+    return resultado;
+}
+
+function esSimbolo(c) {
+    return /^[a-z]$/.test(c);
+}
+
+// Precedencia
+function precedencia(op) {
+    if (op === '*') return 3;
+    if (op === '.') return 2;
+    if (op === '|') return 1;
+    return 0;
+}
+
+// Infix -> Postfix
+function aPostfijo(exp) {
+    let salida = "";
+    let pila = [];
+
+    for (let c of exp) {
+        if (esSimbolo(c)) {
+            salida += c;
+        }
+        else if (c === '(') {
+            pila.push(c);
+        }
+        else if (c === ')') {
+            while (pila.length && pila[pila.length-1] !== '(')
+                salida += pila.pop();
+            pila.pop();
+        }
+        else {
+            while (
+                pila.length &&
+                precedencia(pila[pila.length-1]) >= precedencia(c)
+            ) {
+                salida += pila.pop();
+            }
+            pila.push(c);
+        }
+    }
+
+    while (pila.length)
+        salida += pila.pop();
+
+    return salida;
+}
+
+// ----------------------------
+// THOMPSON
+// ----------------------------
+
+let estadoId = 0;
+
+class Estado {
+    constructor() {
+        this.id = estadoId++;
+        this.transiciones = {};
+        this.epsilon = [];
+    }
+}
+
+class AFN {
+    constructor(inicio, fin) {
+        this.inicio = inicio;
+        this.fin = fin;
+    }
+}
+
+function thompson(postfijo) {
+    let pila = [];
+
+    for (let c of postfijo) {
+
+        if (esSimbolo(c)) {
+            let i = new Estado();
+            let f = new Estado();
+            i.transiciones[c] = [f];
+            pila.push(new AFN(i, f));
+        }
+
+        else if (c === '.') {
+            let b = pila.pop();
+            let a = pila.pop();
+            a.fin.epsilon.push(b.inicio);
+            pila.push(new AFN(a.inicio, b.fin));
+        }
+
+        else if (c === '|') {
+            let b = pila.pop();
+            let a = pila.pop();
+            let i = new Estado();
+            let f = new Estado();
+
+            i.epsilon.push(a.inicio);
+            i.epsilon.push(b.inicio);
+
+            a.fin.epsilon.push(f);
+            b.fin.epsilon.push(f);
+
+            pila.push(new AFN(i, f));
+        }
+
+        else if (c === '*') {
+            let a = pila.pop();
+            let i = new Estado();
+            let f = new Estado();
+
+            i.epsilon.push(a.inicio);
+            i.epsilon.push(f);
+
+            a.fin.epsilon.push(a.inicio);
+            a.fin.epsilon.push(f);
+
+            pila.push(new AFN(i, f));
+        }
+    }
+
+    return pila.pop();
+}
+
+// ----------------------------
+// SIMULACIÓN AFN
+// ----------------------------
+
+function epsilonClosure(estados) {
+    let pila = [...estados];
+    let cerradura = new Set(estados);
+
+    while (pila.length) {
+        let estado = pila.pop();
+        for (let e of estado.epsilon) {
+            if (!cerradura.has(e)) {
+                cerradura.add(e);
+                pila.push(e);
+            }
+        }
+    }
+    return cerradura;
+}
+
+function mover(estados, simbolo) {
+    let resultado = new Set();
+    for (let estado of estados) {
+        if (estado.transiciones[simbolo]) {
+            for (let s of estado.transiciones[simbolo])
+                resultado.add(s);
+        }
+    }
+    return resultado;
+}
+
+function simular(afn, cadena) {
+    let actuales = epsilonClosure([afn.inicio]);
+
+    for (let c of cadena) {
+        actuales = mover(actuales, c);
+        actuales = epsilonClosure(actuales);
+    }
+
+    return actuales.has(afn.fin);
+}
+
+// ----------------------------
+// VALIDACIÓN
+// ----------------------------
+
+function validar() {
+    estadoId = 0;
+
+    let exp = document.getElementById("regex").value;
+    let cadena = document.getElementById("cadena").value;
+    let resultado = document.getElementById("resultado");
+
+    try {
+        exp = insertarConcatenacion(exp);
+        let post = aPostfijo(exp);
+        let afn = thompson(post);
+        let esValida = simular(afn, cadena);
+
+        if (esValida) {
+            resultado.innerHTML = "✔ Cadena válida";
+            resultado.className = "result valid";
+        } else {
+            resultado.innerHTML = "✘ Cadena inválida";
+            resultado.className = "result invalid";
+        }
+
+    } catch {
+        resultado.innerHTML = "Expresión inválida";
+        resultado.className = "result invalid";
+    }
+}
+
+</script>
+</body>
+</html>
