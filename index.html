@@ -19,10 +19,11 @@ button { background:#2c3e50; color:white; border:none; cursor:pointer; }
 
 <div class="info">
 Macros disponibles:<br>
-L = [a-z]<br>
+L = [a-zA-Z]<br>
 D = [0-9]<br><br>
-Permitido como símbolo literal: .<br>
-Operadores permitidos: |  *  ( )<br>
+Símbolos especiales permitidos:<br>
+.  _  -  @<br><br>
+Operadores válidos: |  *  ( )<br>
 </div>
 
 <label>Expresión regular:</label>
@@ -42,7 +43,11 @@ Operadores permitidos: |  *  ( )<br>
 // =============================
 function expandirMacros(exp) {
 
-    const L = "(a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)";
+    const L = "(" +
+        "a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|" +
+        "A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z" +
+        ")";
+
     const D = "(0|1|2|3|4|5|6|7|8|9)";
 
     exp = exp.replace(/L/g, L);
@@ -55,11 +60,11 @@ function expandirMacros(exp) {
 // UTILIDADES
 // =============================
 
+// puedes agregar más símbolos especiales aquí si deseas
 function esSimbolo(c) {
-    return /^[a-z0-9.]$/.test(c); // ahora incluye .
+    return /^[a-zA-Z0-9._\-@]$/.test(c);
 }
 
-// usamos · como concatenación interna
 const CONCAT = "·";
 
 function insertarConcatenacion(exp) {
@@ -118,7 +123,7 @@ function aPostfijo(exp) {
             pila.pop();
         }
 
-        else { // operador
+        else {
             while (
                 pila.length &&
                 precedencia(pila[pila.length-1]) >= precedencia(c)
@@ -279,7 +284,6 @@ function validar() {
 
     let exp = document.getElementById("regex").value.trim();
     let cadena = document.getElementById("cadena").value.trim();
-
     let resultado = document.getElementById("resultado");
 
     try {
